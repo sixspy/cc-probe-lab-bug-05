@@ -16,10 +16,24 @@
     <div class="门槛条" id="门槛条"></div>
     <header class="顶牌" style="margin-bottom:10px">
       <h1 style="font-size:22px">站点源</h1>
-      <div class="骨">传感站登记目录。</div>
+      <div class="骨">传感站登记目录 · 固件门禁：低版本探头灯红，现行入栏只收达标固件集。</div>
     </header>
 
     <section class="卷">
+      <h2>固件门禁对账</h2>
+      <div id="固件门禁"></div>
+      <div class="工具 上距12">
+        <input id="探头站" placeholder="站点键" style="max-width:160px"/>
+        <input id="探头固件" placeholder="固件版本 如 1.0.0" style="max-width:160px"/>
+        <button class="按钮" id="登记探头">登记探头固件</button>
+        <input id="最低版本" placeholder="抬高最低版本 如 1.3.0" style="max-width:160px"/>
+        <button class="按钮 次" id="抬升白名单">抬升白名单</button>
+      </div>
+      <pre class="回执" id="门禁回执">登记低版本探头后灌夹具可复现。</pre>
+    </section>
+
+    <section class="卷">
+      <h2>站点目录</h2>
       <div class="表绕"><table><thead><tr><th>源键</th><th>名称</th><th>介质</th><th>区域</th><th>说明</th></tr></thead><tbody id="表"></tbody></table></div>
     </section>
     <script>
@@ -29,7 +43,32 @@
       for (const r of rows) {
         tb.appendChild(探栏.行(`<td>${探栏.安全文本(r.源键)}</td><td>${探栏.安全文本(r.名称)}</td><td>${探栏.安全文本(r.介质)}</td><td>${探栏.安全文本(r.区域)}</td><td>${探栏.安全文本(r.说明)}</td>`));
       }
+      await 刷门禁();
     })();
+    async function 刷门禁() {
+      const 账 = await 探栏.getJSON("/api/固件门禁/站点源对账");
+      探栏.渲染固件门禁(document.getElementById("固件门禁"), 账);
+    }
+    document.getElementById("登记探头").onclick = async () => {
+      const el = document.getElementById("门禁回执");
+      try {
+        el.textContent = JSON.stringify(await 探栏.postJSON("/api/固件门禁/探头", {
+          站点键: document.getElementById("探头站").value.trim(),
+          固件版本: document.getElementById("探头固件").value.trim(),
+        }), null, 2);
+        await 刷门禁();
+      } catch (e) { el.textContent = String(e); }
+    };
+    document.getElementById("抬升白名单").onclick = async () => {
+      const el = document.getElementById("门禁回执");
+      try {
+        el.textContent = JSON.stringify(await 探栏.postJSON("/api/固件门禁/白名单", {
+          最低版本: document.getElementById("最低版本").value.trim(),
+          备注: "站点源页抬升",
+        }), null, 2);
+        await 刷门禁();
+      } catch (e) { el.textContent = String(e); }
+    };
     </script>
 
   </div>

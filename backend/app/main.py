@@ -6,6 +6,7 @@ from app.services import fwgate as fwgate_svc
 from app.services import fwgate_cutover as fwgate_cut_svc
 from app.services import fwgate_dualwrite as fwgate_dual_svc
 from app.services import fwgate_audit as fwgate_audit_svc
+from app.services import 固件白名单 as 固件白名单_svc
 
 _STATIC = Path(__file__).resolve().parent / "static"
 app = Quart(__name__)
@@ -222,3 +223,39 @@ async def api_fwgate_dual_post():
 @app.get("/api/fwgate/审计")
 async def api_fwgate_audit():
     return jsonify(fwgate_audit_svc.audit_summary())
+
+
+@app.get("/api/固件门禁")
+async def api_固件门禁():
+    return jsonify(固件白名单_svc.门禁看板())
+
+
+@app.get("/api/固件门禁/对账")
+async def api_固件对账():
+    return jsonify(固件白名单_svc.对账())
+
+
+@app.get("/api/固件门禁/站点源对账")
+async def api_固件站点源对账():
+    return jsonify(固件白名单_svc.站点源对账())
+
+
+@app.post("/api/固件门禁/白名单")
+async def api_固件白名单设():
+    body = await request.get_json(force=True, silent=True) or {}
+    return jsonify(固件白名单_svc.设最低版本(
+        str(body.get("最低版本") or ""), str(body.get("备注") or "")
+    ))
+
+
+@app.post("/api/固件门禁/探头")
+async def api_固件探头登记():
+    body = await request.get_json(force=True, silent=True) or {}
+    return jsonify(固件白名单_svc.登记探头(
+        str(body.get("站点键") or ""), str(body.get("固件版本") or "")
+    ))
+
+
+@app.get("/api/固件门禁/归档")
+async def api_固件归档():
+    return jsonify(固件白名单_svc.归档列表())

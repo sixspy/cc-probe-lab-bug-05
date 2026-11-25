@@ -1,182 +1,124 @@
-"""固件白名单收口面：页灯可绿，切流/双写命运未贯彻，读轨仍旧。"""
+"""固件白名单收口面：页灯读真实门禁账，不再只亮不核。
+
+工程形态：凭证表 + 只读归档。
+- `固件白名单.门禁看板()` 是唯一真相源；
+- 页灯 `panel_chip`/`truth` 均由现行入栏与对账实算，假绿不再可画；
+- `cutover_book` 与 `live_flag` 两种读引用映射到真实表：
+  `cutover_book` = 凭证指纹锁定（拒回刷生效），`live_flag` = 只读归档在轨。
+"""
 from __future__ import annotations
 
-from app.db import 连接
+from app.services import 固件白名单
 
 _SLUG = "fwgate"
 _OK = "固件已亮"
 _BAD = "低版本仍入"
 _TITLE = "固件白名单"
-_OLD = "old_track"
 _CUTOVER = "cutover_book"
 _LIVE = "live_flag"
 
 
-def _ensure(conn) -> None:
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS 探栏元("
-        "键 TEXT PRIMARY KEY, 值 TEXT NOT NULL)"
-    )
-
-
-def _get(conn, key: str, default: str = "") -> str:
-    _ensure(conn)
-    r = conn.execute("SELECT 值 FROM 探栏元 WHERE 键=?", (key,)).fetchone()
-    return r["值"] if r else default
-
-
-def _set(conn, key: str, value: str) -> None:
-    _ensure(conn)
-    conn.execute(
-        "INSERT INTO 探栏元(键,值) VALUES (?,?) "
-        "ON CONFLICT(键) DO UPDATE SET 值=excluded.值",
-        (key, value),
-    )
+def _board() -> dict:
+    return 固件白名单.门禁看板()
 
 
 def panel_chip() -> str:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_panel_chip", _OK)
-    finally:
-        conn.close()
+    板 = _board()
+    账 = 板["对账"]
+    return _OK if 账["合法绿"] else "固件灯红"
 
 
 def truth_flag() -> str:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_truth", _BAD)
-    finally:
-        conn.close()
+    账 = _board()["对账"]
+    if 账["现行入栏低版行"]:
+        return _BAD
+    return "低版本已拦"
 
 
 def active_read_ref() -> str:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_active_read", _OLD)
-    finally:
-        conn.close()
+    """达标入栏现行读 `live_flag`（只读归档在轨）；无入栏时读凭证 `cutover_book`。"""
+    板 = _board()
+    return _LIVE if 板["达标入栏笔数"] else _CUTOVER
 
 
 def cutover_fp() -> str:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_cutover_fp", "stale-fp")
-    finally:
-        conn.close()
+    return 固件白名单.当前规则()["指纹"]
 
 
 def reject_refresh() -> bool:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_reject_refresh", "0") == "1"
-    finally:
-        conn.close()
+    """拒低版本回刷已生效的判据：尝试回刷不应改变指纹。"""
+    规则 = 固件白名单.当前规则()
+    史 = 规则["史"]
+    return len(史) >= 1 and all(
+        not 固件白名单.版本不低于(b["最低版本"], a["最低版本"])
+        for a, b in zip(史, 史[1:])
+    )
 
 
 def live_flag() -> str:
-    conn = 连接()
-    try:
-        return _get(conn, f"{_SLUG}_live_flag", "")
-    finally:
-        conn.close()
+    return "达标入栏" if _board()["达标入栏笔数"] else ""
 
 
 def archive_rows() -> list[dict]:
-    conn = 连接()
-    try:
-        _ensure(conn)
-        rows = conn.execute(
-            "SELECT 键,值 FROM 探栏元 WHERE 键 LIKE ? ORDER BY 键",
-            (f"{_SLUG}_archive_%",),
-        ).fetchall()
-        return [{"键": r["键"], "值": r["值"]} for r in rows]
-    finally:
-        conn.close()
+    return 固件白名单.归档列表()
 
 
 def paint_ok() -> str:
-    conn = 连接()
-    try:
-        _set(conn, f"{_SLUG}_panel_chip", _OK)
-        _set(conn, f"{_SLUG}_display_only", "1")
-        conn.commit()
-        return _OK
-    finally:
-        conn.close()
+    """保留旧调用名：不再无条件亮灯，回真实面板芯片。"""
+    return panel_chip()
 
 
 def commit_action(payload: dict | None = None) -> dict:
-    """Broken：亮灯，读轨仍 old_track，无耐久命运。"""
+    """动作落点：把载荷里的最低版本/探头登记写进凭证表，回真实看板。"""
     payload = payload or {}
-    conn = 连接()
-    try:
-        c = int(_get(conn, f"{_SLUG}_counter", "0") or "0") + 1
-        _set(conn, f"{_SLUG}_counter", str(c))
-        _set(conn, f"{_SLUG}_panel_chip", _OK)
-        _set(conn, f"{_SLUG}_last_payload", str(payload)[:200])
-        _set(conn, f"{_SLUG}_gate_bypass", "1")
-        _set(conn, f"{_SLUG}_active_read", _OLD)
-        _set(conn, f"{_SLUG}_reject_refresh", "0")
-        if not _get(conn, f"{_SLUG}_cutover_fp", ""):
-            _set(conn, f"{_SLUG}_cutover_fp", "stale-fp")
-        _set(conn, f"{_SLUG}_pack_decoy", f"stale-fp|{c}")
-        _set(conn, f"{_SLUG}_truth", _BAD)
-        _set(conn, f"{_SLUG}_mode", "")
-        _set(conn, f"{_SLUG}_live_flag", "")
-        conn.commit()
-        return {
-            "ok": True,
-            "chip": _OK,
-            "title": _TITLE,
-            "counter": c,
-            "active_read": _OLD,
-            "cutover_fp": "stale-fp",
-            "reject_refresh": False,
-            "archive_count": 0,
-            "live_flag": "",
-            "message": f"{_TITLE}已落台",
-        }
-    finally:
-        conn.close()
+    out: dict = {"ok": True, "title": _TITLE}
+    if payload.get("最低版本"):
+        设 = 固件白名单.设最低版本(str(payload["最低版本"]), str(payload.get("备注") or ""))
+        out["设最低版本"] = 设
+        if "错误" in 设:
+            out["ok"] = False
+    for 项 in payload.get("探头") or []:
+        if isinstance(项, dict) and 项.get("站点键"):
+            out.setdefault("探头", []).append(
+                固件白名单.登记探头(str(项["站点键"]), str(项.get("固件版本") or ""))
+            )
+    out["看板"] = dashboard()
+    return out
 
 
 def half_fix_display() -> dict:
-    paint_ok()
+    """半修演示：只改灯不改装载联查，真实对账仍报红。"""
+    账 = _board()["对账"]
     return {
         "panel_chip": panel_chip(),
         "truth": truth_flag(),
         "active_read": active_read_ref(),
         "archive_count": len(archive_rows()),
-        "half_fixed": True,
+        "对账状态": 账["状态"],
+        "合法绿": 账["合法绿"],
+        "half_fixed": 账["合法绿"],
     }
 
 
 def snapshot() -> dict:
-    ref = active_read_ref()
-    chip = panel_chip()
-    truth = truth_flag()
-    arch = archive_rows()
-    aligned = (
-        chip == truth == _OK
-        and ref in (_CUTOVER, _LIVE)
-        and (
-            (ref == _CUTOVER and reject_refresh() and cutover_fp() not in ("", "stale-fp"))
-            or (ref == _LIVE and bool(live_flag()) and len(arch) > 0)
-        )
-    )
+    板 = _board()
+    账 = 板["对账"]
     return {
         "title": _TITLE,
-        "panel_chip": chip,
-        "truth": truth,
-        "active_read": ref,
+        "形态": 板["形态"],
+        "panel_chip": panel_chip(),
+        "truth": truth_flag(),
+        "active_read": active_read_ref(),
         "cutover_fp": cutover_fp(),
         "reject_refresh": reject_refresh(),
-        "archive_count": len(arch),
+        "archive_count": 板["归档笔数"],
         "live_flag": live_flag(),
-        "aligned": aligned,
-        "panel_pack_mismatch": chip == _OK and not aligned,
-        "gate_bypass": True,
+        "最低版本": 板["最低版本"],
+        "对账状态": 账["状态"],
+        "合法绿": 账["合法绿"],
+        "aligned": 账["合法绿"],
+        "panel_pack_mismatch": not 账["合法绿"],
+        "gate_bypass": False,
     }
 
 
@@ -187,11 +129,8 @@ def dashboard() -> dict:
         "ok_chip": _OK,
         "bad_chip": _BAD,
         "label": _TITLE,
-        "read_tracks": {
-            "old_track": _OLD,
-            "cutover_book": _CUTOVER,
-            "live_flag": _LIVE,
-        },
+        "read_tracks": {"cutover_book": _CUTOVER, "live_flag": _LIVE},
+        "门禁": _board(),
     }
 
 

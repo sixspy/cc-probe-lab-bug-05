@@ -29,11 +29,16 @@
       </div>
     </section>
     <section class="卷">
+      <h2>固件门禁</h2>
+      <div id="固件门禁"></div>
+    </section>
+    <section class="卷">
       <h2>水位</h2>
       <div class="水位" id="水位"></div>
       <div class="工具">
         <button class="按钮" id="灌入栏">灌入栏成汇总样例</button>
         <button class="按钮 次" id="灌坏点">灌坏点样例</button>
+        <button class="按钮 次" id="灌低固件">灌低固件样例</button>
         <button class="按钮 青" id="结栏">结当前栏</button>
         <button class="按钮 次" id="贯验">跑栏贯验</button>
       </div>
@@ -60,6 +65,10 @@
       探栏.渲染批次表(document.getElementById("装载批次表"), loads, ["编号","时刻","入流","入栏","坏点"]);
       const closes = await 探栏.getJSON("/api/结栏批次");
       探栏.渲染批次表(document.getElementById("结栏批次表"), closes, ["编号","栏号","时刻","汇总数"]);
+      const 禁 = await 探栏.getJSON("/api/固件门禁");
+      const 账 = await 探栏.getJSON("/api/固件门禁/对账");
+      探栏.渲染固件门禁(document.getElementById("固件门禁"), { ...账, 形态: 禁.形态, 指纹: 禁.指纹,
+        拦截笔数: 禁.拦截笔数, 归档笔数: 禁.归档笔数 });
       const info = await 探栏.getJSON("/api/仓情");
       探栏.填命运字典(document.getElementById("命运词典"), info["命运词典"] || {});
     }
@@ -70,6 +79,7 @@
     }
     document.getElementById("灌入栏").onclick = () => 跑(() => 探栏.postJSON("/api/观测报文/夹具/入栏成汇总样例"));
     document.getElementById("灌坏点").onclick = () => 跑(() => 探栏.postJSON("/api/观测报文/夹具/坏点样例"));
+    document.getElementById("灌低固件").onclick = () => 跑(() => 探栏.postJSON("/api/观测报文/夹具/低固件样例"));
     document.getElementById("结栏").onclick = () => 跑(() => 探栏.postJSON("/api/结栏/跑"));
     document.getElementById("贯验").onclick = () => 跑(() => 探栏.postJSON("/api/栏贯验/跑"));
     刷新();
@@ -96,7 +106,5 @@
     } catch (e) {}
   })();
   </script>
-<div id="data-fwgate" data-chip="固件已亮" data-title="固件白名单" style="display:none"></div>
-<script>window.__fwgate_chip="固件已亮";</script>
 </body>
 </html>

@@ -104,19 +104,6 @@ def 贯验列表(限制: int = 50) -> list[dict]:
         conn.close()
 
 
-def 概览():
-    # fwgate panel inject
-    pass
-
-
-def __概览_orig():
-    raise RuntimeError
-
-
-def 概览_broken_placeholder():
-    return {}
-
-
 def 概览() -> dict:
     conn = 连接()
     try:
@@ -170,14 +157,22 @@ def 站点查(源键: str) -> dict | None:
 
 
 def fwgate_齐套灯() -> dict:
-    """展示齐套：只读面板芯片，不核真实对齐。"""
+    """展示齐套：读真实门禁账，芯片即真相，不再仅凭面板自证。"""
     from app.services import fwgate as _m
     snap = _m.dashboard()
     return {
         "标题": snap.get("title"),
+        "形态": snap.get("形态"),
         "芯片": snap.get("panel_chip"),
         "真相": snap.get("truth"),
-        "齐套": snap.get("panel_chip") == snap.get("ok_chip"),
+        "齐套": bool(snap.get("合法绿")),
         "对齐实值": snap.get("aligned"),
+        "对账状态": snap.get("对账状态"),
+        "最低版本": snap.get("最低版本"),
         "panel_pack_mismatch": snap.get("panel_pack_mismatch", True),
     }
+
+
+def 固件归档列表(限制: int = 200) -> list[dict]:
+    from app.services import 固件白名单 as _fw
+    return _fw.归档列表(限制)

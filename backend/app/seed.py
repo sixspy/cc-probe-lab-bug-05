@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS 观测报文 (
   观测时 TEXT NOT NULL,
   处理时 TEXT NOT NULL,
   命运 TEXT NOT NULL DEFAULT '已装载',
-  批次编号 TEXT NOT NULL DEFAULT ''
+  批次编号 TEXT NOT NULL DEFAULT '',
+  固件版本 TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS 入栏缓冲 (
   报文编号 TEXT PRIMARY KEY,
@@ -31,7 +32,9 @@ CREATE TABLE IF NOT EXISTS 入栏缓冲 (
   观测时 TEXT NOT NULL,
   栏号 TEXT NOT NULL,
   命运 TEXT NOT NULL DEFAULT '在栏',
-  入栏时 TEXT NOT NULL
+  入栏时 TEXT NOT NULL,
+  固件版本 TEXT NOT NULL DEFAULT '',
+  固件指纹 TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS 站点汇总账 (
   汇总编号 TEXT PRIMARY KEY,
@@ -88,11 +91,9 @@ def 此刻() -> str:
 
 
 def 初始化库() -> None:
-    # seed fwgate display chip
-
     conn = 连接()
     conn.executescript(建表)
-    _seed_fwgate_chip(conn)
+    _迁移固件列(conn)
     if conn.execute("SELECT COUNT(*) AS c FROM 栏规").fetchone()["c"] == 0:
         for k, v in {
             "当前栏号": "B-demo",
@@ -119,16 +120,13 @@ def 初始化库() -> None:
 
 
 
-def _seed_fwgate_chip(conn) -> None:
-    conn.execute(
-        "INSERT INTO 探栏元(键,值) VALUES (?,?) ON CONFLICT(键) DO UPDATE SET 值=excluded.值",
-        ("fwgate_panel_chip", "固件已亮"),
-    )
-    conn.execute(
-        "INSERT INTO 探栏元(键,值) VALUES (?,?) ON CONFLICT(键) DO UPDATE SET 值=excluded.值",
-        ("fwgate_truth", "低版本仍入"),
-    )
-    conn.execute(
-        "INSERT INTO 探栏元(键,值) VALUES (?,?) ON CONFLICT(键) DO UPDATE SET 值=excluded.值",
-        ("fwgate_active_read", "old_track"),
-    )
+def _迁移固件列(conn) -> None:
+    """旧库补列：固件版本/指纹。"""
+    for 表, 列 in [
+        ("观测报文", "固件版本"),
+        ("入栏缓冲", "固件版本"),
+        ("入栏缓冲", "固件指纹"),
+    ]:
+        现有 = {r["name"] for r in conn.execute(f"PRAGMA table_info({表})").fetchall()}
+        if 列 not in 现有:
+            conn.execute(f"ALTER TABLE {表} ADD COLUMN {列} TEXT NOT NULL DEFAULT ''")

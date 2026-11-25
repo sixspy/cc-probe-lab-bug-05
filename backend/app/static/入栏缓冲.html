@@ -16,19 +16,28 @@
     <div class="门槛条" id="门槛条"></div>
     <header class="顶牌" style="margin-bottom:10px">
       <h1 style="font-size:22px">入栏缓冲</h1>
-      <div class="骨">过门槛、尚未结栏汇总的在途集合。</div>
+      <div class="骨">过门槛、尚未结栏汇总的在途集合 · 只收达标固件集，低版本不入现行栏。</div>
     </header>
 
     <section class="卷">
-      <div class="表绕"><table><thead><tr><th>报文编号</th><th>站点</th><th>指标</th><th>读数</th><th>栏号</th><th>命运</th></tr></thead><tbody id="表"></tbody></table></div>
+      <h2>固件门禁卡片</h2>
+      <div id="固件门禁"></div>
+    </section>
+    <section class="卷">
+      <h2>在栏明细</h2>
+      <div class="表绕"><table><thead><tr><th>报文编号</th><th>站点</th><th>指标</th><th>读数</th><th>固件</th><th>白名单指纹</th><th>栏号</th><th>命运</th></tr></thead><tbody id="表"></tbody></table></div>
     </section>
     <script>
     (async () => {
+      const 禁 = await 探栏.getJSON("/api/固件门禁");
+      const 账 = await 探栏.getJSON("/api/固件门禁/对账");
+      探栏.渲染固件门禁(document.getElementById("固件门禁"), { ...账, 形态: 禁.形态, 指纹: 禁.指纹,
+        拦截笔数: 禁.拦截笔数, 归档笔数: 禁.归档笔数 });
       const rows = await 探栏.getJSON("/api/入栏缓冲");
       const tb = document.getElementById("表");
-      if (!rows.length) { tb.innerHTML = `<tr><td colspan="6">${探栏.空态("缓冲为空。")}</td></tr>`; return; }
+      if (!rows.length) { tb.innerHTML = `<tr><td colspan="8">${探栏.空态("缓冲为空。")}</td></tr>`; return; }
       for (const r of rows) {
-        tb.appendChild(探栏.行(`<td>${探栏.安全文本(r.报文编号)}</td><td>${探栏.安全文本(r.站点键)}</td><td>${探栏.安全文本(r.指标键)}</td><td>${r.读数}</td><td>${探栏.安全文本(r.栏号)}</td><td>${探栏.徽章(r.命运)}</td>`));
+        tb.appendChild(探栏.行(`<td>${探栏.安全文本(r.报文编号)}</td><td>${探栏.安全文本(r.站点键)}</td><td>${探栏.安全文本(r.指标键)}</td><td>${r.读数}</td><td>${探栏.安全文本(r.固件版本 || "—")}</td><td>${探栏.安全文本(r.固件指纹 || "—")}</td><td>${探栏.安全文本(r.栏号)}</td><td>${探栏.徽章(r.命运)}</td>`));
       }
     })();
     </script>

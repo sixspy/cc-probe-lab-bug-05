@@ -28,6 +28,7 @@
     "已坏点": "未过门槛，进坏点匣",
     "已汇总": "结栏后物化完成",
     "在栏": "缓冲中等待结栏",
+    "固件旁路": "固件低于白名单，只读归档，不入现行栏",
 }
 
 
@@ -51,6 +52,7 @@ def 仓情() -> dict:
         "fwgate_truth": _snap.get("truth", "低版本仍入"),
         "fwgate_aligned": _snap.get("aligned", False),
         "fwgate_title": "固件白名单",
+        "fwgate_形态": "凭证表+只读归档",
     }
 
 

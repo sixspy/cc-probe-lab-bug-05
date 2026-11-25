@@ -16,14 +16,23 @@
     <div class="门槛条" id="门槛条"></div>
     <header class="顶牌" style="margin-bottom:10px">
       <h1 style="font-size:22px">坏点匣</h1>
-      <div class="骨">未过质控门槛的报文旁路。</div>
+      <div class="骨">未过质控门槛的报文旁路 · 固件低版本另走只读归档，不混入坏点匣。</div>
     </header>
 
     <section class="卷">
+      <h2>固件门禁策略</h2>
+      <div id="固件门禁"></div>
+    </section>
+    <section class="卷">
+      <h2>坏点明细</h2>
       <div class="表绕"><table><thead><tr><th>编号</th><th>报文编号</th><th>站点</th><th>原因</th><th>读数</th><th>观测时</th></tr></thead><tbody id="表"></tbody></table></div>
     </section>
     <script>
     (async () => {
+      const 禁 = await 探栏.getJSON("/api/固件门禁");
+      const 账 = await 探栏.getJSON("/api/固件门禁/对账");
+      探栏.渲染固件门禁(document.getElementById("固件门禁"), { ...账, 形态: 禁.形态, 指纹: 禁.指纹,
+        拦截笔数: 禁.拦截笔数, 归档笔数: 禁.归档笔数 });
       const rows = await 探栏.getJSON("/api/坏点匣");
       const tb = document.getElementById("表");
       if (!rows.length) { tb.innerHTML = `<tr><td colspan="6">${探栏.空态("坏点匣为空。灌坏点样例可看到越界旁路。")}</td></tr>`; return; }
